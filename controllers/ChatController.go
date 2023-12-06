@@ -14,7 +14,12 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-var clients = make(map[*websocket.Conn]bool)
+type Message struct {
+	Receiver string `json:"receiver"`
+	Value    string `json:"value"`
+}
+
+var clients = make(map[*websocket.Conn]string)
 
 func (c *MainController) Get() {
 	defer c.ServeJSON()
@@ -23,25 +28,32 @@ func (c *MainController) Get() {
 		beego.Error("Error upgrading to WebSocket:", err)
 		return
 	}
-	defer conn.Close()
-	clients[conn] = true
+	defer func() {
+		removeClient(conn)
+		conn.Close()
+	}()
+
+	username := c.GetString("username")
+	clients[conn] = username
 	conn.WriteMessage(websocket.TextMessage, []byte("Hello Client!"))
+
+	var message Message
+
 	for {
-		_, msg, err := conn.ReadMessage()
+		err := conn.ReadJSON(&message)
 		if err != nil {
-			beego.Error("Error reading from WebSocket:", err)
+			removeClient(conn)
 			return
 		}
-		beego.Info("Message received from client:", string(msg))
-		for client := range clients {
-			if client == conn {
-				continue
-			}
-			err = client.WriteMessage(websocket.TextMessage, msg)
-			if err != nil {
-				beego.Error("Error writing to WebSocket:", err)
-				return
+
+		for client, clientUsername := range clients {
+			if message.Receiver == clientUsername {
+				client.WriteMessage(websocket.TextMessage, []byte(message.Value))
 			}
 		}
 	}
+}
+
+func removeClient(conn *websocket.Conn) {
+	delete(clients, conn)
 }
