@@ -42,7 +42,6 @@ func (c *MainController) Get() {
 				beego.Error("Error writing to WebSocket:", err)
 				return
 			}
-
 		}
 	}
 }
