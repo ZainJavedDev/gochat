@@ -7,5 +7,5 @@ type Room struct {
 	Name   string `gorm:"unique;not null"`
 	UserId uint   `gorm:"not null"`
 
-	User User `gorm:"foreignkey:UserId"`
+	User User `gorm:"foreignkey:UserId" json:"-"`
 }
