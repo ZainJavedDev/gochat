@@ -22,7 +22,8 @@ func (c *MigrationController) Post() {
 	}
 
 	db := utils.ConnectDB()
-	db.AutoMigrate(&models.User{})
+	// db.AutoMigrate(&models.User{})
+	db.AutoMigrate(&models.Room{})
 
 	responseData := map[string]interface{}{
 		"message": "Migration completed successfully!",
