@@ -1,6 +1,9 @@
 package controllers
 
 import (
+	"chat-app/models"
+	"chat-app/utils"
+
 	"github.com/astaxie/beego"
 	"github.com/gorilla/websocket"
 )
@@ -15,11 +18,11 @@ var upgrader = websocket.Upgrader{
 }
 
 type Message struct {
-	Receiver string `json:"receiver"`
+	Receiver uint   `json:"receiver"`
 	Value    string `json:"value"`
 }
 
-var clients = make(map[*websocket.Conn]string)
+var clients = make(map[*websocket.Conn]uint)
 
 func (c *ChatController) Get() {
 	defer c.ServeJSON()
@@ -33,8 +36,20 @@ func (c *ChatController) Get() {
 		conn.Close()
 	}()
 
-	username := c.GetString("username")
-	clients[conn] = username
+	tokenString := c.Ctx.Input.Header("Authorization")
+	userId, _, err := utils.Validate(tokenString)
+
+	db := utils.ConnectDB()
+	defer db.Close()
+
+	var userFromDB models.User
+	result := db.Where("user_id = ?", userId).First(&userFromDB)
+	if result.Error != nil {
+		errorMessage := "Unable to connect"
+		utils.CreateErrorResponse(&c.Controller, 405, errorMessage)
+	}
+
+	clients[conn] = userFromDB.ID
 	conn.WriteMessage(websocket.TextMessage, []byte("Hello Client!"))
 
 	var message Message
@@ -46,8 +61,8 @@ func (c *ChatController) Get() {
 			return
 		}
 
-		for client, clientUsername := range clients {
-			if message.Receiver == clientUsername {
+		for client, clientUserId := range clients {
+			if message.Receiver == clientUserId {
 				client.WriteMessage(websocket.TextMessage, []byte(message.Value))
 			}
 		}
