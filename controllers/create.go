@@ -16,6 +16,13 @@ type Room struct {
 }
 
 func (c *CreateRoomController) Post() {
+
+	var room Room
+	err := c.ParseForm(&room)
+	if err != nil {
+		utils.CreateErrorResponse(&c.Controller, 500, err.Error())
+	}
+
 	tokenString := c.Ctx.Input.Header("Authorization")
 	userId, _, err := utils.Validate(tokenString)
 	if err != nil {
@@ -24,7 +31,6 @@ func (c *CreateRoomController) Post() {
 	db := utils.ConnectDB()
 	defer db.Close()
 
-	var room Room
 	result := db.Create(&models.Room{UserId: userId, Name: room.RoomName})
 	if result.Error != nil {
 		utils.CreateErrorResponse(&c.Controller, 400, "Unable to create room!")
