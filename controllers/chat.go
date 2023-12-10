@@ -5,7 +5,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type MainController struct {
+type ChatController struct {
 	beego.Controller
 }
 
@@ -21,7 +21,7 @@ type Message struct {
 
 var clients = make(map[*websocket.Conn]string)
 
-func (c *MainController) Get() {
+func (c *ChatController) Get() {
 	defer c.ServeJSON()
 	conn, err := upgrader.Upgrade(c.Ctx.ResponseWriter, c.Ctx.Request, nil)
 	if err != nil {
