@@ -3,23 +3,24 @@ package controllers
 import (
 	"chat-app/models"
 	"chat-app/utils"
+	"strconv"
 
 	"github.com/astaxie/beego"
 	"github.com/gorilla/websocket"
 )
 
-type ChatController struct {
+type Message struct {
+	Receiver uint   `json:"receiver"`
+	Value    string `json:"value"`
+}
+
+type RoomChatController struct {
 	beego.Controller
 }
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
+var roomClients = make(map[*websocket.Conn]uint)
 
-var clients = make(map[*websocket.Conn]uint)
-
-func (c *ChatController) Get() {
+func (c *RoomChatController) Get() {
 	defer c.ServeJSON()
 	conn, err := upgrader.Upgrade(c.Ctx.ResponseWriter, c.Ctx.Request, nil)
 	if err != nil {
@@ -32,7 +33,7 @@ func (c *ChatController) Get() {
 	}()
 
 	tokenString := c.Ctx.Input.Header("Authorization")
-	userId, _, err := utils.Validate(tokenString)
+	_, _, err = utils.Validate(tokenString)
 	if err != nil {
 		errorResponse := "Invalid or expired token"
 		utils.CreateErrorResponse(&c.Controller, 400, errorResponse)
@@ -40,15 +41,16 @@ func (c *ChatController) Get() {
 
 	db := utils.ConnectDB()
 	defer db.Close()
-
-	var userFromDB models.User
-	result := db.Where("id = ?", userId).First(&userFromDB)
+	var roomFromDB models.Room
+	roomId := c.Ctx.Input.Query("room")
+	result := db.Where("id = ?", roomId).First(&roomFromDB)
 	if result.Error != nil {
 		errorMessage := "Unable to connect"
 		utils.CreateErrorResponse(&c.Controller, 405, errorMessage)
 	}
-
-	clients[conn] = userFromDB.ID
+	roomIdUint, _ := strconv.ParseUint(roomId, 10, 0)
+	var roomIdAsUint uint = uint(roomIdUint)
+	clients[conn] = roomIdAsUint
 	conn.WriteMessage(websocket.TextMessage, []byte("Hello Client!"))
 
 	var message Message
@@ -60,14 +62,10 @@ func (c *ChatController) Get() {
 			return
 		}
 
-		for client, clientUserId := range clients {
-			if message.Receiver == clientUserId {
+		for client, clientRoomId := range roomClients {
+			if message.Receiver == clientRoomId {
 				client.WriteMessage(websocket.TextMessage, []byte(message.Value))
 			}
 		}
 	}
-}
-
-func removeClient(conn *websocket.Conn) {
-	delete(clients, conn)
 }

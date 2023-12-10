@@ -14,6 +14,8 @@ func init() {
 	beego.Router("/refresh", &controllers.RefreshTokenController{})
 
 	beego.Router("/chat", &controllers.ChatController{})
-	beego.Router("/chat/create", &controllers.CreateRoomController{})
-	beego.Router("/chat/list", &controllers.ListRoomController{})
+
+	beego.Router("/room/chat", &controllers.RoomChatController{})
+	beego.Router("/room/create", &controllers.CreateRoomController{})
+	beego.Router("/room/list", &controllers.ListRoomController{})
 }
