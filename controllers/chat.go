@@ -38,6 +38,10 @@ func (c *ChatController) Get() {
 
 	tokenString := c.Ctx.Input.Header("Authorization")
 	userId, _, err := utils.Validate(tokenString)
+	if err != nil {
+		errorResponse := "Invalid or expired token"
+		utils.CreateErrorResponse(&c.Controller, 400, errorResponse)
+	}
 
 	db := utils.ConnectDB()
 	defer db.Close()
