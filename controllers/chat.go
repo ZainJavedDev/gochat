@@ -47,7 +47,7 @@ func (c *ChatController) Get() {
 	defer db.Close()
 
 	var userFromDB models.User
-	result := db.Where("user_id = ?", userId).First(&userFromDB)
+	result := db.Where("id = ?", userId).First(&userFromDB)
 	if result.Error != nil {
 		errorMessage := "Unable to connect"
 		utils.CreateErrorResponse(&c.Controller, 405, errorMessage)
