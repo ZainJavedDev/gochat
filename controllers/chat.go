@@ -12,12 +12,23 @@ type ChatController struct {
 	beego.Controller
 }
 
+type JoinRoomController struct {
+	beego.Controller
+}
+
+type Message struct {
+	Receiver uint   `json:"receiver"`
+	Room     uint   `json:"room"`
+	Value    string `json:"value"`
+}
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 }
 
 var clients = make(map[*websocket.Conn]uint)
+var roomClients = make(map[uint]uint) // key is client id and value is room id
 
 func (c *ChatController) Get() {
 	defer c.ServeJSON()
@@ -59,10 +70,21 @@ func (c *ChatController) Get() {
 			removeClient(conn)
 			return
 		}
-
-		for client, clientUserId := range clients {
-			if message.Receiver == clientUserId {
-				client.WriteMessage(websocket.TextMessage, []byte(message.Value))
+		if message.Receiver != 0 {
+			for clientConn, clientUserId := range clients {
+				if message.Receiver == clientUserId {
+					clientConn.WriteMessage(websocket.TextMessage, []byte(message.Value))
+				}
+			}
+		} else {
+			for roomClientUserId, roomId := range roomClients {
+				if message.Room == roomId {
+					for clientConn, clientUserId := range clients {
+						if roomClientUserId == clientUserId {
+							clientConn.WriteMessage(websocket.TextMessage, []byte(message.Value))
+						}
+					}
+				}
 			}
 		}
 	}
@@ -70,4 +92,34 @@ func (c *ChatController) Get() {
 
 func removeClient(conn *websocket.Conn) {
 	delete(clients, conn)
+}
+
+func (c *JoinRoomController) Get() {
+	var room Room
+	err := c.ParseForm(&room)
+	if err != nil {
+		utils.CreateErrorResponse(&c.Controller, 500, err.Error())
+	}
+
+	tokenString := c.Ctx.Input.Header("Authorization")
+	userId, _, err := utils.Validate(tokenString)
+	if err != nil {
+		utils.CreateErrorResponse(&c.Controller, 400, "Invalid or expired token.")
+	}
+
+	db := utils.ConnectDB()
+	defer db.Close()
+
+	dbRoom := models.Room{}
+	result := db.Where("name = ?", room.RoomName).First(&dbRoom)
+	if result.Error != nil {
+		utils.CreateErrorResponse(&c.Controller, 404, "No room with such name.")
+	}
+	roomClients[userId] = dbRoom.ID
+
+	responseData := map[string]string{
+		"message": "Room joined successfully!",
+	}
+	c.Data["json"] = responseData
+	c.ServeJSON()
 }
