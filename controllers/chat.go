@@ -94,7 +94,7 @@ func removeClient(conn *websocket.Conn) {
 	delete(clients, conn)
 }
 
-func (c *JoinRoomController) Get() {
+func (c *JoinRoomController) Post() {
 	var room Room
 	err := c.ParseForm(&room)
 	if err != nil {
